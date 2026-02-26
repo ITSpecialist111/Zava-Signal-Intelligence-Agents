@@ -1,0 +1,161 @@
+flowchart LR
+    subgraph PLAYWRIGHT["🎭 Playwright (Headless Chromium)"]
+        direction TB
+        TES["TES Magazine — Leadership, mergers"]
+        GOV["Gov.uk Trust Handbook — Compliance, pay"]
+        SW["Schools Week — MAT growth, mergers"]
+        BESA["BESA Forum — Procurement, tech"]
+        DMARKET["G-Cloud Marketplace — Competitor listings"]
+        INDEED["Indeed UK — Competitor hiring"]
+    end
+
+    subgraph APIs["🔌 REST APIs"]
+        direction TB
+        CF["Contracts Finder\nOCDS procurement notices"]
+        CH["Companies House\nProfiles, officers, filings"]
+    end
+
+    subgraph AGENTS["⚙️ Collectors"]
+        direction TB
+        SC["Signal Collector\n4 education sites"]
+        CG["Competitor Ghost\n2 competitor sources"]
+        PW["Procurement Watch\nContracts Finder"]
+    end
+
+    TES & GOV & SW & BESA -->|"crawl"| SC
+    DMARKET & INDEED -->|"crawl"| CG
+    CF --> PW
+
+    subgraph LLM["🤖 GPT-4o Parsing"]
+        direction TB
+        PARSE["Signal Parser\nRaw HTML → structured Signals"]
+        COMP["Competitor Parser\nHirings, listings, expansion"]
+    end
+
+    SC -->|"15K chars"| PARSE
+    CG --> COMP
+
+    subgraph SWEEP["🔄 Daily Sweep (Weekdays 7am)"]
+        direction TB
+        S1["1 Collect — parallel async"]
+        S2["2 Dedupe — entity + category"]
+        S3["3 Enrich — Companies House + Playbook"]
+        S4["4 Route — confidence threshold"]
+        S5["5 Store — persist signals"]
+        S1 --> S2 --> S3 --> S4 --> S5
+    end
+
+    PARSE & COMP & PW --> S1
+    CH -->|"enrich"| S3
+
+    subgraph ENRICH["📊 Enrichment"]
+        direction TB
+        E1["Companies House\nJaccard match, officers, accounts"]
+        E2["Playbook Mapping\n6 plays: New Biz, Upsell,\nDisplacement, Retention,\nStrategic Partner, Land & Expand"]
+        E3["LLM Summary\nFinancial, action,\nimpact, talk track"]
+    end
+
+    S3 --- E1 & E2 & E3
+
+    subgraph SIGNAL["📦 Signal Model"]
+        SIG["25+ fields · 5 categories · 17 subcategories\nHIGH ≥0.8 · MED 0.5–0.8 · LOW <0.5\nNEW → ENRICHED → APPROVED / HITL_PENDING"]
+    end
+
+    S5 --> SIG
+
+    subgraph STORAGE["💾 Storage"]
+        direction TB
+        SS["Signal Store — JSON"]
+        RH["Run History — metrics"]
+        BS["Azure Blob — PDF/DOCX SAS URLs"]
+    end
+
+    SIG --> SS
+    S5 --> RH
+
+    subgraph HITL["👤 HITL Gates"]
+        direction TB
+        G1["Gate 1 ✅ False Positive Filter\nApprove / Dismiss signals"]
+        G2["Gate 2 🔶 Content Approval\nOutreach approve/reject/rework"]
+        G3["Gate 3 🔶 Strategy Pivot\nVP: categories, weights, thresholds"]
+    end
+
+    S4 -->|"pending"| G1
+    G1 --> SS
+
+    subgraph OUTPUTS["📤 Outputs"]
+        direction TB
+        O1["PDF — Monthly Horizon Report"]
+        O2["DOCX — Colour-coded Word Report"]
+        O3["Markdown — Weekly Segment Brief"]
+        O4["Adaptive Cards — Teams signals"]
+        O5["HTML — Email digest & alerts"]
+        O6["Planner Tasks · Excel Pipeline · Calendar"]
+    end
+
+    SS --> OUTPUTS
+    O1 & O2 -->|"upload"| BS
+
+    subgraph AGENT18["💬 Interactive Agent — 18 Tools"]
+        direction TB
+        IA["ChatAgent GPT-4o · A2A Protocol"]
+        TD["Data: signals, details, dashboard, queue, history"]
+        TA["Action: sweep, review, brief, report, word doc"]
+        TDist["Distribute: digest, alert, meeting, tasks, pipeline, Teams, cards"]
+    end
+
+    IA --- TD & TA & TDist
+    TD --> SS
+    TA --> SS & OUTPUTS
+    TDist --> OUTPUTS
+
+    subgraph SERVER["🖥️ A2A Server — Azure Container App"]
+        direction TB
+        A2A["aiohttp :8080 · JSON-RPC 2.0\n120s timeout · 3-retry backoff"]
+        CRON["Scheduled Sweep — cron 0 7 * * 1-5"]
+    end
+
+    A2A --> IA
+    CRON --> SWEEP
+
+    subgraph CS["🟣 Copilot Studio"]
+        direction TB
+        CSUI["Copilot Studio Agent\nConversational UI"]
+        TRIG["⏰ Morning Trigger\nGet Word report → email"]
+        SF_MCP["Salesforce MCP ✅\nQuery & update records"]
+        M365_MCP["M365 MCP ✅\nAgent 365 servers\nEmail · Calendar · SharePoint\nPlanner · Teams"]
+        A2A_MCP["Signal Analyst A2A\nSweep · query · reports"]
+    end
+
+    CSUI --> SF_MCP & M365_MCP & A2A_MCP
+    A2A_MCP -->|"A2A"| A2A
+    TRIG -->|"1 request report"| A2A_MCP
+    TRIG -->|"2 email out"| M365_MCP
+
+    subgraph EXT["☁️ External Services"]
+        direction TB
+        SFDC["Salesforce CRM\nAccounts · Opps · Leads"]
+        M365["Microsoft 365\nOutlook · SharePoint · Teams\nPlanner · Calendar"]
+    end
+
+    SF_MCP --> SFDC
+    M365_MCP --> M365
+
+    G2 -.->|"future"| M365_MCP
+    G3 -.->|"future"| SWEEP
+    SFDC -.->|"future: deal outcomes"| SWEEP
+
+    classDef live fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    classDef built fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    classDef pw fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px
+    classDef api fill:#bbdefb,stroke:#1565c0,stroke-width:2px
+    classDef cop fill:#e8d5f5,stroke:#6a1b9a,stroke-width:2px
+    classDef ext fill:#ffe0b2,stroke:#e65100,stroke-width:2px
+
+    class TES,GOV,SW,BESA,DMARKET,INDEED pw
+    class CF,CH api
+    class G2,G3 built
+    class G1,SC,CG,PW,SS,RH,BS,IA,TD,TA,TDist live
+    class O1,O2,O3,O4,O5,O6 live
+    class CSUI,TRIG,SF_MCP,M365_MCP,A2A_MCP cop
+    class SFDC,M365 ext

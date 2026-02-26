@@ -1,0 +1,50 @@
+{
+  "teams": [
+    {
+      "name": "Public Sector Sales",
+      "teams_channel_id": "",
+      "planner_plan_id": "",
+      "sharepoint_site_url": "",
+      "members": [
+        {
+          "name": "Sales Team Lead",
+          "email": "sales-lead@example.com",
+          "role": "Team Lead",
+          "categories": [],
+          "min_confidence": 0.0,
+          "receives_daily_digest": true,
+          "receives_instant_alerts": true,
+          "receives_weekly_brief": true,
+          "receives_monthly_report": true
+        }
+      ]
+    },
+    {
+      "name": "Strategy & Insights",
+      "teams_channel_id": "",
+      "planner_plan_id": "",
+      "sharepoint_site_url": "",
+      "members": [
+        {
+          "name": "Strategy Lead",
+          "email": "strategy-lead@example.com",
+          "role": "VP Strategy",
+          "categories": ["STRUCTURAL_STRESS", "PROCUREMENT_SHIFT"],
+          "min_confidence": 0.5,
+          "receives_daily_digest": false,
+          "receives_instant_alerts": true,
+          "receives_weekly_brief": true,
+          "receives_monthly_report": true
+        }
+      ]
+    }
+  ],
+  "review_meeting_duration_minutes": 30,
+  "review_meeting_title_template": "Signal Review: {category} — {entity_name}",
+  "digest_subject_template": "Signal Intelligence Digest — {date} ({signal_count} signals)",
+  "alert_subject_template": "⚡ HIGH Signal: {entity_name} — {category}",
+  "report_template_name": "Zava Signal Intelligence Report",
+  "report_sharepoint_folder": "Shared Documents/Signal Reports",
+  "task_title_template": "{entity_name}: {recommended_action}",
+  "task_due_days": 7
+}
