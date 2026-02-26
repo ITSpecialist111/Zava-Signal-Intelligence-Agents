@@ -10,9 +10,9 @@ Zava is a technology provider selling into UK academy trusts and multi-academy t
 
 Manually tracking hundreds of trusts across Companies House filings, government procurement portals, Ofsted reports, and competitor press releases is unsustainable. The team needs an **always-on intelligence engine** that surfaces the signals that matter, filters out noise, and delivers actionable insights directly into the tools they already use — Microsoft Teams, Outlook, Planner, and SharePoint.
 
-### What the Customer Asked For
+### The Asked
 
-> *"We want a Copilot Studio agent that our sales team can talk to in natural language. They should be able to ask 'What's happening with Harris Federation?' or 'Show me all procurement signals from the last week' and get instant, structured answers. When something important is detected, the agent should proactively push alerts to the team via email and Teams. It needs to generate professional Word reports for leadership, create Planner tasks for follow-up, and maintain a pipeline tracker — all without leaving the M365 ecosystem."*
+> *"We want a Copilot Studio agent that our sales team can talk to in natural language. They should be able to ask 'What's happening with customer X?' or 'Show me all procurement signals from the last week' and get instant, structured answers. When something important is detected, the agent should proactively push alerts to the team via email and Teams. It needs to generate professional Word reports for leadership, create Planner tasks for follow-up, and maintain a pipeline tracker — all without leaving the M365 ecosystem."*
 
 ### What We Built
 
