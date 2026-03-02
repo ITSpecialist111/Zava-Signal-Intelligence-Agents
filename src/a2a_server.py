@@ -76,7 +76,7 @@ def _build_agent_card(base_url: str) -> dict:
         },
         "version": A2A_AGENT_VERSION,
         "capabilities": {
-            "streaming": False,
+            "streaming": True,
             "pushNotifications": False,
         },
         "defaultInputModes": ["text/plain"],
@@ -309,6 +309,167 @@ def _build_task_result(
     }
 
 
+# ── SSE streaming ─────────────────────────────────────────────────────────
+
+
+async def _handle_streaming_response(
+    request: web.Request,
+    user_text: str,
+    context_id: str | None = None,
+    rpc_id: str | int | None = None,
+) -> web.StreamResponse:
+    """Stream SSE events back to the caller (Copilot Studio / A2A client).
+
+    Event flow:
+      1. Immediate ``working`` status — tells the client we've started.
+      2. Heartbeat every 10 s — keeps the connection alive.
+      3. ``completed`` with the agent reply — the final answer.
+      4. ``done`` sentinel — signals end of stream.
+    """
+    resp = web.StreamResponse(
+        status=200,
+        headers={
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+    await resp.prepare(request)
+
+    task_id = str(uuid.uuid4())
+    ctx_id = context_id or str(uuid.uuid4())
+
+    # -- helpers -----------------------------------------------------------
+
+    async def _send_sse(data: dict, event: str = "message/stream") -> None:
+        payload = f"event: {event}\ndata: {json.dumps(data)}\n\n"
+        await resp.write(payload.encode("utf-8"))
+
+    def _wrap(body: dict) -> dict:
+        if rpc_id is not None:
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": body}
+        return body
+
+    def _status_update(state: str, text: str | None = None) -> dict:
+        status: dict = {"state": state}
+        if text:
+            status["message"] = {
+                "role": "agent",
+                "parts": [{"kind": "text", "text": text}],
+            }
+        return _wrap({"id": task_id, "contextId": ctx_id, "status": status})
+
+    # 1) Acknowledge immediately
+    await _send_sse(_status_update("working", "\u23f3 Processing your request\u2026"))
+    logger.info("SSE stream opened \u2014 task %s, user: %s", task_id, user_text[:80])
+
+    # 2) Run the agent in a background coroutine
+    async def _do_agent() -> str:
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                async with _run_lock:
+                    agent = _create_chat_agent()
+                    result = await asyncio.wait_for(
+                        agent.run(user_text, store=False), timeout=120,
+                    )
+                return _extract_response_text(result) or "Done."
+            except Exception as exc:
+                err_str = str(exc)
+                is_rate_limited = (
+                    "429" in err_str or "too_many_requests" in err_str.lower()
+                )
+                if is_rate_limited and attempt < max_retries:
+                    wait = 2 ** attempt
+                    logger.warning(
+                        "SSE: 429 (attempt %d/%d) \u2014 retry in %ds",
+                        attempt, max_retries, wait,
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+                raise
+        return "Done."  # unreachable but keeps linters happy
+
+    agent_task = asyncio.create_task(_do_agent())
+
+    # 3) Heartbeat every 10 s while the agent works
+    heartbeat_n = 0
+    while not agent_task.done():
+        done, _ = await asyncio.wait({agent_task}, timeout=10)
+        if not done:
+            heartbeat_n += 1
+            await _send_sse(
+                _status_update(
+                    "working",
+                    f"\u23f3 Still working\u2026 ({heartbeat_n * 10}s elapsed)",
+                )
+            )
+
+    # 4) Final result or error
+    t_elapsed = heartbeat_n * 10  # approximate seconds
+    try:
+        response_text = agent_task.result()
+        final = _build_task_result(response_text, context_id=ctx_id)
+        final["id"] = task_id
+        await _send_sse(_wrap(final))
+        logger.info(
+            "SSE completed \u2014 %d chars, ~%ds", len(response_text), t_elapsed,
+        )
+    except asyncio.TimeoutError:
+        await _send_sse(
+            _status_update("failed", "\u23f3 The request timed out. Please try again.")
+        )
+    except Exception as exc:
+        err_str = str(exc)
+        is_rl = "429" in err_str or "too_many_requests" in err_str.lower()
+        msg = (
+            "\u23f3 Azure OpenAI is temporarily rate-limited. Please wait and try again."
+            if is_rl
+            else "\u274c Sorry, something went wrong. Please try again."
+        )
+        logger.error("SSE agent error: %s", exc, exc_info=True)
+        await _send_sse(_status_update("failed", msg))
+
+    # 5) Close the stream
+    await _send_sse({}, "done")
+    await resp.write_eof()
+    return resp
+
+
+async def handle_message_stream(request: web.Request) -> web.StreamResponse:
+    """POST /a2a/message:stream \u2014 A2A streaming message handler."""
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, Exception) as exc:
+        return web.json_response(
+            {
+                "type": "https://a2a-protocol.org/errors/invalid-request",
+                "title": "Invalid Request",
+                "status": 400,
+                "detail": f"Invalid JSON body: {exc}",
+            },
+            status=400,
+        )
+
+    user_text = _extract_user_text(body)
+    if not user_text:
+        return web.json_response(
+            {
+                "type": "https://a2a-protocol.org/errors/invalid-request",
+                "title": "No text",
+                "status": 400,
+                "detail": "No text parts found in message.",
+            },
+            status=400,
+        )
+
+    message = body.get("message", body)
+    context_id = message.get("contextId")
+    logger.info("A2A stream request \u2014 user: %s", user_text[:120])
+    return await _handle_streaming_response(request, user_text, context_id)
+
+
 # ── Route handlers ────────────────────────────────────────────────────────
 
 
@@ -483,7 +644,33 @@ async def handle_jsonrpc(request: web.Request) -> web.Response:
     rpc_id = body.get("id")
     params = body.get("params", {})
 
-    if method in ("SendMessage", "SendStreamingMessage", "message/send"):
+    # ── Streaming path ──────────────────────────────────────────────────
+    if method in ("SendStreamingMessage", "message/stream"):
+        user_text = _extract_user_text(params)
+        if not user_text:
+            return web.json_response(
+                {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {
+                        "code": -32602,
+                        "message": "No text parts found in message",
+                    },
+                },
+                status=400,
+            )
+        message = params.get("message", params)
+        context_id = message.get("contextId")
+        logger.info(
+            "A2A JSON-RPC %s (streaming) \u2014 %s (ctx=%s)",
+            method, user_text[:100], context_id,
+        )
+        return await _handle_streaming_response(
+            request, user_text, context_id, rpc_id=rpc_id,
+        )
+
+    # ── Non-streaming path ────────────────────────────────────────────────
+    if method in ("SendMessage", "message/send"):
         user_text = _extract_user_text(params)
         if not user_text:
             return web.json_response(
@@ -666,7 +853,7 @@ def create_app() -> web.Application:
 
     # A2A explicit paths (alternate to /)
     app.router.add_post("/a2a/message:send", handle_message_send)
-    app.router.add_post("/a2a/message:stream", handle_message_send)
+    app.router.add_post("/a2a/message:stream", handle_message_stream)
     app.router.add_post("/a2a", handle_jsonrpc)
 
     # CORS preflight
