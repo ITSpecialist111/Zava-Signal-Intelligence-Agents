@@ -37,6 +37,10 @@ class SignalStore:
                 logger.warning("Failed to load signal store: %s", e)
                 self._signals = {}
 
+    def reload(self) -> None:
+        """Re-read signals from disk (useful when another instance has written)."""
+        self._load()
+
     def _save(self) -> None:
         """Persist signals to disk."""
         with open(self.store_path, "w") as f:

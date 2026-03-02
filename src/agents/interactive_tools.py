@@ -656,8 +656,10 @@ async def run_sweep_now() -> str:
     from src.workflows.daily_sweep import run_daily_sweep
 
     config = _get_config()
+    store = _get_store()
 
     summary = await run_daily_sweep(
+        signal_store=store,
         confidence_threshold=config.signal.confidence_threshold,
     )
 
