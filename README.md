@@ -1,5 +1,17 @@
-# Zava Signal Analyst
+# 🤖 Zava: 8-Agent Signal Intelligence Swarm
+**Powered by Microsoft Foundry Agent-to-Agent & Copilot Studio**
 
+Most AI implementations fail because they rely on a single, brittle prompt. **Zava** is an agentic orchestration system that uses 8 specialized "Atomic Agents" to monitor, enrich, and distribute competitive market signals.
+
+## 🚀 Quick Architecture
+- **Collection:** 3 Scouts (Web/API/RSS)
+- **Enrichment:** 2 Analysts (Financials & Stakeholder Mapping)
+- **Action:** 3 Distributors (Teams/CRM/Email)
+
+## 🛠️ Prerequisites
+- Microsoft Copilot Studio License
+- Access to Microsoft Foundry (Agent-to-Agent Preview)
+- Power Automate Premium (for Graph API connectors)
 **AI-powered market intelligence agent for the UK education sector, built on Microsoft Copilot Studio.**
 
 ---
