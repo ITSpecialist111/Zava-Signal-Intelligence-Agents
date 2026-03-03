@@ -24,7 +24,7 @@ Manually tracking hundreds of trusts across Companies House filings, government 
 
 ### The Ask
 
-> *"We want a Copilot Studio agent that our sales team can talk to in natural language. They should be able to ask 'What's happening with customer X?' or 'Show me all procurement signals from the last week' and get instant, structured answers. When something important is detected, the agent should proactively push alerts to the team via email and Teams. It needs to generate professional Word reports for leadership, create Planner tasks for follow-up, and maintain a pipeline tracker — all without leaving the M365 ecosystem."*
+> *"We need a Copilot Studio agent that our sales team can talk to in natural language. They should be able to ask 'What's happening with customer X?' or 'Show me all procurement signals from the last week' and get instant, structured answers. When something important is detected, the agent should proactively push alerts to the team via email and Teams. It needs to generate professional Word reports for leadership, create tasks for follow-up, and maintain a pipeline tracker — all without leaving the M365 ecosystem but joining to our CRM System."*
 
 ### What We Built
 
